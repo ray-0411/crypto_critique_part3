@@ -9,6 +9,18 @@ function base64urlToUint8Array(base64url) {
     return result;
 }
 
+function bufferToBase64url(buffer) {
+    const bytes = new Uint8Array(buffer);
+    let str = "";
+    for (let i = 0; i < bytes.length; i++) {
+        str += String.fromCharCode(bytes[i]);
+    }
+    return btoa(str)
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "");
+}
+
 // Register
 document.getElementById("registerBtn").addEventListener("click", async () => {
     const username = document.getElementById("username").value.trim();
@@ -51,6 +63,33 @@ document.getElementById("registerBtn").addEventListener("click", async () => {
             publicKey: options
         });
 
+        // 🔥 把 credential 轉成 JSON 可傳格式
+        const credentialData = {
+            id: credential.id,
+            rawId: bufferToBase64url(credential.rawId),
+            type: credential.type,
+            response: {
+                clientDataJSON: bufferToBase64url(credential.response.clientDataJSON),
+                attestationObject: bufferToBase64url(credential.response.attestationObject)
+            }
+        };
+
+        // 🔥 傳回後端
+        const finishRes = await fetch("/register_complete", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                username,
+                credential: credentialData
+            })
+        });
+
+        const finishData = await finishRes.json();
+
+        messageEl.textContent = finishData.message;
+
         console.log("Registration credential:", credential);
         messageEl.textContent = "Passkey created successfully (not saved to server yet)";
     } catch (err) {
@@ -61,6 +100,75 @@ document.getElementById("registerBtn").addEventListener("click", async () => {
 
 // Login
 document.getElementById("loginBtn").addEventListener("click", async () => {
-    const username = document.getElementById("username").value;
-    document.getElementById("message").textContent = `Login clicked: ${username}`;
+    const username = document.getElementById("username").value.trim();
+    const messageEl = document.getElementById("message");
+
+    if (!username) {
+        messageEl.textContent = "Please enter a username";
+        return;
+    }
+
+    try {
+        const res = await fetch("/login_begin", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ username })
+        });
+
+        const data = await res.json();
+
+        if (data.status !== "ok") {
+            messageEl.textContent = data.message;
+            return;
+        }
+
+        const options = data.options;
+
+        options.challenge = base64urlToUint8Array(options.challenge);
+
+        if (options.allowCredentials) {
+            options.allowCredentials = options.allowCredentials.map(cred => ({
+                ...cred,
+                id: base64urlToUint8Array(cred.id)
+            }));
+        }
+
+        const assertion = await navigator.credentials.get({
+            publicKey: options
+        });
+
+        const credentialData = {
+            id: assertion.id,
+            rawId: bufferToBase64url(assertion.rawId),
+            type: assertion.type,
+            response: {
+                clientDataJSON: bufferToBase64url(assertion.response.clientDataJSON),
+                authenticatorData: bufferToBase64url(assertion.response.authenticatorData),
+                signature: bufferToBase64url(assertion.response.signature),
+                userHandle: assertion.response.userHandle
+                    ? bufferToBase64url(assertion.response.userHandle)
+                    : null
+            }
+        };
+
+        const finishRes = await fetch("/login_complete", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                username,
+                credential: credentialData
+            })
+        });
+
+        const finishData = await finishRes.json();
+        messageEl.textContent = finishData.message;
+
+    } catch (err) {
+        console.error(err);
+        messageEl.textContent = `Login failed or cancelled: ${err.message}`;
+    }
 });
