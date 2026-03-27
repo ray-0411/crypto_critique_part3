@@ -18,5 +18,10 @@
     "credential_id": "OHKOkm3pwXwNmoiTRZ-CCw",
     "public_key": "pQECAyYgASFYIF6cHvLqWY3wx_UqFnHx2fTaoV7rFyfe3FQUhv-W7amcIlggS92viTCyuurp3HjtKhHSxVRW5P8NmtKXUWuv82KP48g",
     "sign_count": 0
+  },
+  "111": {
+    "credential_id": "lxBxyIbBahopTHhYbL3yqg",
+    "public_key": "pQECAyYgASFYIE96roYMeclVYnNuV0CY3dkyVIAOy5XZPr4s77IEUefnIlggU9CyrZ4INGysScjKhRRJQhNu1MbxOc_sUJ3XT3TbngI",
+    "sign_count": 0
   }
 }

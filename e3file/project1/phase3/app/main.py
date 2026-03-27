@@ -3,6 +3,7 @@ import json
 import os
 import base64
 import secrets
+from asgiref.wsgi import WsgiToAsgi
 
 from webauthn import (
     generate_registration_options,
@@ -20,26 +21,31 @@ from webauthn.helpers.structs import (
     PublicKeyCredentialDescriptor,
 )
 
-app = Flask(__name__)
-app.secret_key = "dev-secret-key-change-this-later"
+from pathlib import Path
 
-USER_FILE = "users.json"
+BASE_DIR = Path(__file__).resolve().parent
+USERS_FILE = BASE_DIR / "users.json"
+
+
+flask_app = Flask(__name__)
+app = WsgiToAsgi(flask_app)
+
+flask_app.secret_key = "dev-secret-key-change-this-later"
 
 RP_ID = "localhost"
 RP_NAME = "WebAuthn Demo"
-EXPECTED_ORIGIN = "http://localhost:5000"
+EXPECTED_ORIGIN = "http://localhost:8000"
 
 
 def load_users():
-    if not os.path.exists(USER_FILE):
-        return {}
-    with open(USER_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
-
+    if USERS_FILE.exists():
+        with open(USERS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
 
 def save_users(users):
-    with open(USER_FILE, "w", encoding="utf-8") as f:
-        json.dump(users, f, indent=2, ensure_ascii=False)
+    with open(USERS_FILE, "w", encoding="utf-8") as f:
+        json.dump(users, f, indent=2)
 
 
 def bytes_to_base64url(value: bytes) -> str:
@@ -103,12 +109,12 @@ def authentication_options_to_json(options):
     }
 
 
-@app.route("/")
+@flask_app.route("/")
 def index():
     return render_template("index.html")
 
 
-@app.route("/register_begin", methods=["POST"])
+@flask_app.route("/register_begin", methods=["POST"])
 def register_begin():
     data = request.json or {}
     username = data.get("username", "").strip()
@@ -149,7 +155,7 @@ def register_begin():
     })
 
 
-@app.route("/register_complete", methods=["POST"])
+@flask_app.route("/register_complete", methods=["POST"])
 def register_complete():
     data = request.json or {}
     username = data.get("username")
@@ -217,7 +223,7 @@ def register_complete():
         }), 400
 
 
-@app.route("/login_begin", methods=["POST"])
+@flask_app.route("/login_begin", methods=["POST"])
 def login_begin():
     data = request.json or {}
     username = data.get("username", "").strip()
@@ -256,7 +262,7 @@ def login_begin():
     })
 
 
-@app.route("/login_complete", methods=["POST"])
+@flask_app.route("/login_complete", methods=["POST"])
 def login_complete():
     data = request.json or {}
     username = data.get("username")
@@ -329,4 +335,4 @@ def login_complete():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="localhost", port=5000)
+    flask_app.run(debug=True, host="localhost", port=5000)

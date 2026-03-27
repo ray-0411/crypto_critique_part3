@@ -1,4 +1,0 @@
-flask
-webauthn
-cryptography
-cbor2
